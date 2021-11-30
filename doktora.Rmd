@@ -1,0 +1,392 @@
+---
+title: "doktora"
+---
+
+1.  Genel Bilgiler: Gözlemlerin Cinsiyet ve Dine Göre Dağılımları
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(ggpubr)
+library(extrafont)
+font_import()
+loadfonts(dyevice="win")
+
+
+tez1 <- read_excel("phd_temiz_v3.xls")
+
+```
+
+# 1. bölüm
+
+2.  Defterler Türlerine Göre Din Dağılımı
+
+```{r}
+#1.1. DATA İÇİNDE ASKERİ-BELEDİ ORANI
+
+tez1 %>% 
+  group_by(kassam) %>%
+  summarise(count = n())
+
+#1.2. DATA İÇİNDE Cinsiyet Dağılımı
+tez1 %>% 
+ group_by(cinsiyet) %>%
+  summarise(count = n())
+
+#1.2. DATA İÇİNDE Cinsiyet Dağılımı / Kassamlara GÖRE
+tez1 %>% 
+ group_by(cinsiyet) %>%
+    filter(kassam == "askeri") %>%
+    filter(kassam == "beledi") %>%
+    summarise(count = n())
+
+#1.3. DATA İÇİNDE M-GM Dağılımı
+tez1 %>% 
+ group_by(din2) %>%
+  summarise(count = n())
+```
+
+3.  Eş ve Çocuk Sayısı İstatistikleri
+
+```{r}
+
+# Çokeşlilik (Poligami) Oranları
+
+tez1 %>% 
+ group_by(es_sayisi) %>%
+  #filter(din2 == "M") %>% 
+  summarise(count = n())
+
+```
+
+4.  Çocuk Sayıları ve Hane Büyüklüğü Tahminleri
+
+```{r}
+# Çocuk Sayıları ve Hane Büyüklüğü Tahminleri
+
+tez1 %>% 
+ group_by(toplam_cocuk) %>%
+      #filter(es_sayisi > 0) %>%
+     summarise(count = n())
+
+tez1 %>% 
+ group_by(toplam_cocuk) %>%
+  filter(din2 == "M") %>% 
+  summarise(count = n())
+
+
+tez1 %>% 
+ group_by(toplam_cocuk) %>%
+  filter(din2 == "GM") %>% 
+  summarise(count = n())
+
+
+tez1 %>% 
+ group_by(ogul_sayisi) %>%
+      #filter(es_sayisi > 0) %>%
+      filter(ogul_sayisi > 0) %>%
+      summarise(count = n())
+
+
+tez1 %>% 
+ group_by(kiz_sayisi) %>%
+      #filter(es_sayisi > 0) %>%
+      filter(kiz_sayisi > 0) %>%
+      summarise(count = n())
+```
+
+5.  Dine Göre Çocuk Sayıları Ortalamaları
+
+```{r}
+tez1 %>%
+  filter (toplam_cocuk != 0 | es_sayisi !=0) %>% 
+  group_by(din2) %>% 
+  summarise(cocuk_ort = mean(toplam_cocuk), sayi=n())
+
+#Hiç Evlenmemişleri ve Boşanmışları Dışarıda Tutmak için Değillerden Oluşan fonksiyon yazıp mümkün en geniş kümeyi aldık.
+
+
+#Tamamlanmış Doğurganlık Hesaplamayı Denedik:
+tez1 %>%
+  #filter (es_sayisi >0) %>% 
+  filter (toplam_cocuk != 0 | es_sayisi !=0) %>% 
+  group_by(din2) %>% 
+  filter(cinsiyet == "k") %>% 
+  summarise(cocuk_ort = mean(toplam_cocuk), sayi=n())
+
+tez1 %>%
+filter (es_sayisi>0 |toplam_cocuk>0) %>% 
+  group_by(din2) %>% 
+  summarise(cocuk_ort = mean(toplam_cocuk), sayi=n())
+
+#evli ve çocuğu olan, cocuk_sayisi >0
+#evli ama çocuğu olmayan, es_sayisi > 0
+#evli olmayan ama çocuğu olanları aldık. O yüzden hiç evlenmemiş olanları != ile dışarıda tuttuk.
+
+#GRAFİK: ÇOCUKLARIN DİN GRUPLARINA GÖRE DAĞILIMI / TABLO 7
+tez1 %>%
+ggplot()+
+geom_jitter(aes(x=din2, y=toplam_cocuk))+
+ xlab("Din") +
+      ylab("Toplam Çocuk") +
+      scale_fill_discrete(name = "Din", labels = c("Gayrimüslim", "Müslim")) +
+      scale_y_continuous(name="Çocuk Sayısı", limits=c(0, 8), breaks = seq(0,8,1)) +
+      custom_theme()
+
+
+
+```
+
+B. YAŞ DEĞİŞKENİ OLUŞTURMA
+
+```{r}
+
+tez <- tez %>% 
+  mutate(otuzdan_buyuk = ifelse(yas_30danbuyuk_2 | yas_30danbuyuk_1,1,0))
+
+tez <- tez %>% 
+  mutate(yas_grup = ifelse(otuzdan_buyuk, "otuz_arti", ifelse(yas_15tenkucuk, "onbes_eksi", "bilinmiyor")))
+
+sum(tez$otuzdan_buyuk)
+
+tez %>% 
+  filter(yas_grup != "bilinmiyor") %>% 
+  ggplot(aes(x=yas_grup, y=toplam)) +
+  geom_violin() +
+  geom_jitter(aes(color=yas_grup)) +
+  custom_theme() +
+  stat_summary(fun=mean, geom="point", shape=10, size=2, color="red", fill="red") +
+  stat_summary(fun=median, geom="point", shape=10, size=2, color="purple", fill="purple") +
+  scale_y_log10(label = scales::comma) +
+  scale_x_discrete(labels=c("15 Yaş Altı","30 Yaş Üstü")) +
+  labs(x = "Yaş Grupları",
+         y = "Log 10 Tabanında Servet",
+         title = "",
+         caption = "") +
+  theme(legend.position = "none")
+
+
+
+custom_theme <- function(){ 
+    font <- "serif"   #assign font family up front
+    
+    theme_minimal() %+replace%    #replace elements we want to change
+        
+        theme(
+            #strip axis ticks
+            
+            #since theme_minimal() already strips axis lines, 
+            #we don't need to do that again
+            
+            #text elements
+            plot.title = element_text(            #title
+                family = font,            #set font family
+                size = 14,                #set font size
+                face = 'bold',            #bold typeface
+                hjust = 0,                #left align
+                vjust = 2),               #raise slightly
+            
+            plot.subtitle = element_text(          #subtitle
+                family = font,            #font family
+                size = 14),               #font size
+            
+            plot.caption = element_text(           #caption
+                family = font,            #font family
+                size = 9,                 #font size
+                hjust = 1),               #right align
+            
+            axis.title = element_text(             #axis titles
+                family = font,            #font family
+                size = 10),               #font size
+            
+            axis.text = element_text(              #axis text
+                family = font,            #axis family
+                size = 9),                #font size
+            
+            axis.text.x = element_text(            #margin for axis text
+                margin=margin(5, b = 10))
+            
+            #since the legend often requires manual tweaking 
+            #based on plot content, don't define it here
+        )
+}
+require(scales)
+
+windowsFonts()$serif[1]
+
+
+```
+
+SERVETİN ONAR YILLIK PERİYOTLARDA DAĞILIMI
+
+```{r}
+tez %>% 
+  group_by(yil) %>% 
+  summarise(t_t = sum(nettoplam, na.rm = T), 
+            t_r = sum(reeltoplam1720, na.rm = T), 
+            mn_t = mean(nettoplam, na.rm = T), 
+            mn_r = mean(reeltoplam1720, na.rm=T), 
+            md_t = median(nettoplam, na.rm = T), 
+            md_r = median(reeltoplam1720, na.rm=T), sd_t = sd(nettoplam, na.rm = T), sd_r = sd(reeltoplam1720, na.rm=T),
+            count = n())
+
+#SERVETİN ONAR YILLIK PERİYOTLARDA DAĞILIMI
+
+tez1 %>% 
+  group_by(yil) %>% 
+  #filter(nettoplam<1000000) %>% 
+  ggplot(aes(x=as_factor(yil), y=reeltoplam1720, fill=din2)) +
+  geom_line(size = 0.5, alpha = 0.5) +
+  geom_boxplot() +
+  stat_summary(fun.y=mean, geom="point", shape=10, size=2, color="red", fill="red") +
+  stat_summary(fun.y=median, geom="point", shape=10, size=2, color="blue", fill="blue") +
+  scale_y_log10(label = scales::comma) +
+  labs(x = "Yıllar",
+         y = "Tolam Servet (akçe)",
+         title = "",
+         caption = "") +
+  theme(legend.position = "none",) +
+  custom_theme()
+
+  tez$reeltoplam1720
+  
+tez1 %>% 
+  group_by(yil) %>% 
+  summarize(mean = mean(reeltoplam1720), median = median(reeltoplam1720)) %>% 
+  pivot_longer(c('mean', 'median'), names_to = "stat", values_to = "values") %>% 
+  ggplot(aes(x=yil, y=values, color=stat)) +
+    geom_line() +
+    scale_y_log10(label = scales::comma) +
+    labs(x = "Yıllar",
+           y = "Tolam Servet (akçe)",
+           title = "",
+           caption = "",
+            ) +
+    theme(legend.position = "none") +
+    custom_theme()
+  
+  scale_y_log10()
+```
+
+SOSYAL GRUPLARIN ÇOCUK ORTALAMALARI:
+
+```{r}
+
+#MESLEK GRUPLARININ DAĞILIMLARI
+
+tez2 <- read_excel("phd_temiz_v3.xls")
+
+            
+count(tez2,meslek)
+
+
+tez2 %>% 
+drop_na(meslek_grubu) %>% 
+  mutate()
+#group_by(yil) %>% 
+  filter(es_sayisi>0 & meslek_grubu != "esraf") %>% 
+  within(tez2, rm("esraf")) %>% 
+  ggplot(aes(x=as_factor(meslek_grubu), y=toplam_cocuk)) +
+  #geom_line(size = 0.5, alpha = 0.5) +
+  #geom_boxplot(aes(fill=din2))+
+  geom_jitter(aes(color = din2, size=es_sayisi)) +
+   xlab("Meslek Grupları, Çocuk ve Eş Sayıları") +
+      ylab("Toplam Çocuk") +
+      scale_color_discrete(name = "Din", labels = c("Gayrimüslim", "Müslüman")) +
+      scale_size_continuous(name = "Eş Sayısı", limits=c(1, 3), breaks = seq(1,3,1)) +
+      scale_y_continuous(name="Çocuk Sayısı", limits=c(0, 8), breaks = seq(0,8,1)) +
+      custom_theme() -> tez7
+  
+  
+summarytools:: freq(((tez2$reeltoplam1720)),report.nas = FALSE, missing ="yok", style ="rmarkdown")
+
+summarytools:: ctable((tez2$reeltoplam1720), report.nas = FALSE, missing ="yok", style ="rmarkdown")
+
+library(summarytools)
+
+
+#SAVE KAYDETME  
+ggsave(tez7, 
+        filename = "data_frame_adi.pdf",
+        scale = 1, 
+        width = 60, 
+        height = 40, 
+        units = "cm",
+        dpi = 300)
+
+tez7
+
+
+
+```
+
+```{r}
+
+#TEMA : 
+custom_theme <- function(){ 
+    font <- "Times New Roman"   #assign font family up front
+    
+    theme_minimal() %+replace%    #replace elements we want to change
+    
+    theme(
+              #strip axis ticks
+      
+      #since theme_minimal() already strips axis lines, 
+      #we don't need to do that again
+      
+      #text elements
+      plot.title = element_text(            #title
+                   family = font,            #set font family
+                   size = 20,                #set font size
+                   face = 'bold',            #bold typeface
+                   hjust = 0,                #left align
+                   vjust = 2),               #raise slightly
+      
+      plot.subtitle = element_text(          #subtitle
+                   family = font,            #font family
+                   size = 14),               #font size
+      
+      plot.caption = element_text(           #caption
+                   family = font,            #font family
+                   size = 9,                 #font size
+                   hjust = 1),               #right align
+      
+      axis.title = element_text(             #axis titles
+                   family = font,            #font family
+                   size = 10),               #font size
+      
+      axis.text = element_text(              #axis text
+                   family = font,            #axis family
+                   size = 9),                #font size
+      
+      axis.text.x = element_text(            #margin for axis text
+                    margin=margin(5, b = 10)),
+      
+      legend.title = element_text(              #axis text
+                   family = font,            #axis family
+                   size = 9),
+      
+      legend.text = element_text(              #axis text
+                   family = font,            #axis family
+                   size = 9)
+      #since the legend often requires manual tweaking 
+      #based on plot content, don't define it here
+    )
+}
+
+
+tez2 <- tez1 %>% 
+  group_by(toplam_cocuk,din2) %>% 
+  summarise(count = n())
+
+#GRAFİK: ALMADIK
+  tez2 %>% 
+    ggplot(aes(x=toplam_cocuk, y=count, fill=din2)) +
+      geom_col(position="dodge", stat="identity") +
+      xlab("Çocuk Sayısı") +
+      ylab("Toplam") +
+      stat_smooth(aes(color=din2), method="lm", formula=y~1, se=FALSE, show.legend = FALSE) +
+      scale_fill_discrete(name = "Din", labels = c("Gayrimüslim", "Müslim")) +
+      custom_theme()
+      
+```
